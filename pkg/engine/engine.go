@@ -3,9 +3,10 @@ package engine
 import (
 	"container/heap"
 	"fmt"
-	"realtime-bidding-system-engine/pkg/utils"
 	"sync"
 	"time"
+
+	"github.com/SubhamShaww/realtime-bidding-system-engine/pkg/utils"
 )
 
 type Bid = utils.Bid
