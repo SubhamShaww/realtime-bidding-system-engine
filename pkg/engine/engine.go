@@ -39,39 +39,40 @@ func processBid(bid Bid, sem chan struct{}, wg *sync.WaitGroup, metrics chan tim
 	}
 }
 
-func init() {
+func RunEngineWithBids(inputBids []Bid, maxConcurrentBidders int, metricsSize int) {
 	fmt.Println("Started realtime bidding system engine...")
-	const maxConcurrentBidders = 5
 	sem := make(chan struct{}, maxConcurrentBidders)
 	var wg sync.WaitGroup
-	metrics := make(chan time.Duration, 20)
+	metricsChan := make(chan time.Duration, metricsSize)
 
 	// create and prioritize bids
 	bids := &PriorityQueue{}
 	heap.Init(bids)
-	for i := 1; i <= 10; i++ {
-		heap.Push(bids, Bid{ID: i, Priority: 10 - i}) // Higher ID = Lower Priority
+	for _, bid := range inputBids {
+		heap.Push(bids, bid)
 	}
+	// for i := 1; i <= 10; i++ {
+	// 	heap.Push(bids, Bid{ID: i, Priority: 10 - i}) // Higher ID = Lower Priority
+	// }
 
 	// process bids by priority
 	for bids.Len() > 0 {
 		bid := heap.Pop(bids).(Bid)
 		wg.Add(1)
-		go processBid(bid, sem, &wg, metrics)
+		go processBid(bid, sem, &wg, metricsChan)
 	}
 
 	wg.Wait()
-	close(metrics)
+	close(metricsChan)
 
 	// Aggregate metrics
-	var total time.Duration
-	var count int
-	for d := range metrics {
-		total += d
-		count++
+	var metrics utils.Metrics
+	for d := range metricsChan {
+		metrics.Log(d, true) // true = successful (since only succesful durations are sent)
 	}
-	if count > 0 {
-		fmt.Printf("Average bid latency: %v\n", total/time.Duration(count))
-	}
+	metrics.TotalBids = len(inputBids)
+	metrics.TimedOut = metrics.TotalBids - metrics.Successful
+
+	metrics.Report()
 	fmt.Println("All bids processed.")
 }

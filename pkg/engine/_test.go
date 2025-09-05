@@ -1,17 +1,16 @@
 package engine
 
 import (
-	"math/rand"
+	"fmt"
+	"testing"
+
+	"github.com/SubhamShaww/realtime-bidding-system-engine/pkg/utils"
 )
 
-func generateBids(n int) []Bid {
-	bids := make([]Bid, n)
-	for i := 0; i < n; i++ {
-		bids[i] = Bid{
-			ID:       i + 1,
-			Priority: rand.Intn(100), // Random priority between 0-99
-		}
-	}
-
-	return bids
+func TestRunEngine(t *testing.T) {
+	fmt.Println("Testing RunEngine function...")
+	bids := utils.GenerateBids(10)
+	maxConcurrentBidders := 5
+	metricsSize := 20
+	engine.RunEngineWithBids(bids, maxConcurrentBidders, metricsSize)
 }
