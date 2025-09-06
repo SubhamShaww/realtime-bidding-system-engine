@@ -3,6 +3,8 @@ package engine
 import (
 	"container/heap"
 	"fmt"
+	"io"
+	"net/http"
 	"sync"
 	"time"
 
@@ -12,7 +14,7 @@ import (
 type Bid = utils.Bid
 type PriorityQueue = utils.PriorityQueue
 
-// simulate bid processing with timeout
+// simulate bid processing with HTTP call to external bidder
 func processBid(bid Bid, sem chan struct{}, wg *sync.WaitGroup, metrics chan time.Duration) {
 	defer wg.Done()
 	sem <- struct{}{}        // acquire slot
@@ -21,21 +23,26 @@ func processBid(bid Bid, sem chan struct{}, wg *sync.WaitGroup, metrics chan tim
 	start := time.Now()
 	fmt.Printf("Bid %d with (Priority %d) started at %s\n", bid.ID, bid.Priority, start.Format("15:04:05.000"))
 
-	done := make(chan struct{})
-	go func() {
-		// simulate variable processing time
-		time.Sleep(time.Duration(400+bid.ID*100) * time.Millisecond)
-		close(done)
-	}()
+	// make HTTP request to mock bidder
+	client := &http.Client{
+		Timeout: 1 * time.Second,
+	}
+	req, _ := http.NewRequest("GET", "http://localhost:8081/bid", nil)
 
-	select {
-	case <-done:
-		end := time.Now()
-		duration := end.Sub(start)
-		fmt.Printf("Bid %d ended at %s (Duration: %v)\n", bid.ID, end.Format("15:04:05.000"), duration)
+	resp, err := client.Do(req)
+	duration := time.Since(start)
+	if err != nil {
+		fmt.Printf("Bid %d failed: %v\n", bid.ID, err)
+		return
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode == http.StatusOK {
+		fmt.Printf("Bid %d succeeded: %s (Duration: %v)\n", bid.ID, string(body), duration)
 		metrics <- duration
-	case <-time.After(1 * time.Second):
-		fmt.Printf("Bid %d timed out!\n", bid.ID)
+	} else {
+		fmt.Printf("Bid %d failed: %s\n", bid.ID, string(body))
 	}
 }
 
