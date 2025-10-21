@@ -13,6 +13,8 @@ import (
 )
 
 func TestRunEngine(t *testing.T) {
+	rand.Seed(time.Now().UnixNano())
+
 	// start a mock bidder using httptest so test is hermetic
 	handler := func(w http.ResponseWriter, _ *http.Request) {
 		// simulate variable latency (eg. 50-200ms) (faster for tests)

@@ -124,13 +124,14 @@ func RunEngineWithBids(
 	}
 
 	// process bids by priority
+processing:
 	for bids.Len() > 0 {
 		// if context cancelled stop accepting new bids
 		select {
 		case <-ctx.Done():
 			fmt.Println("Context cancelled - stopping intake of new bids")
 			bids = &PriorityQueue{} // clear to break
-			break
+			break processing        // labelled break exits the outer for loop
 		default:
 		}
 
