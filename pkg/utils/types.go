@@ -11,6 +11,12 @@ type Bid struct {
 	Priority int // Higher value = higher priority
 }
 
+type BidResult struct {
+	BidID    int
+	Duration time.Duration
+	Success  bool
+}
+
 // PriorityQueue implements heap.Interface
 type PriorityQueue []Bid
 

@@ -57,6 +57,11 @@ func ReadBidsFromRedisStream(ctx context.Context, rdb *redis.Client, stream stri
 }
 
 func SendBidResultToKafka(writer *kafka.Writer, bidID int, status string) error {
+	// early-return when writer is nil (kafka not configured) (eg. in tests)
+	if writer == nil {
+		return nil
+	}
+
 	msg := kafka.Message{
 		Key:   []byte(fmt.Sprintf("%d", bidID)),
 		Value: []byte(status),
