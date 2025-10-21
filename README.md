@@ -10,7 +10,7 @@ It simulates DSP-style bid handling and can be extended with Redis Streams (inge
 - Kafka integration example: write bid events to a Kafka topic
 - Redis Streams reader helper for ingestion (utils)
 - Prometheus metrics helpers (histogram + counters) and a small helper to expose `/metrics`
-- Unit test harness for engine (pkg/engine/_test.go)
+- Unit test harness for engine (pkg/engine/engine_test.go)
 
 ## Repo layout
 - cmd/app — main application (runs engine)
@@ -80,7 +80,7 @@ engine.RunEngineWithBids(ctx, bids, 5, 20, "http://localhost:8081/bid")
 
 ## Testing / Integration
 
-- Unit/integration tests in pkg/engine/_test.go spin up an httptest.Server that simulates latency/failures and pass server.URL+"/bid" to RunEngineWithBids. This keeps tests hermetic and fast.
+- Unit/integration tests in pkg/engine/engine_test.go spin up an httptest.Server that simulates latency/failures and pass server.URL+"/bid" to RunEngineWithBids. This keeps tests hermetic and fast.
 
 ## Troubleshooting
 
