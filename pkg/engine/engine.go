@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/SubhamShaww/realtime-bidding-system-engine/pkg/utils"
+	"github.com/segmentio/kafka-go"
 )
 
 type Bid = utils.Bid
@@ -39,10 +40,21 @@ func processBid(bid Bid, sem chan struct{}, wg *sync.WaitGroup, metrics chan tim
 	body, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode == http.StatusOK {
+		kfwriter := kafka.NewWriter(kafka.WriterConfig{
+			Brokers:  []string{"localhost: 9092"},
+			Topic:    "bids",
+			Balancer: &kafka.LeastBytes{},
+		})
+		defer kfwriter.Close()
+
+		utils.SendBidResultToKafka(kfwriter, bid.ID, "success")
 		fmt.Printf("Bid %d succeeded: %s (Duration: %v)\n", bid.ID, string(body), duration)
 		metrics <- duration
+		utils.BidLatency.Observe(duration.Seconds())
+		utils.BidSuccess.Inc()
 	} else {
 		fmt.Printf("Bid %d failed: %s\n", bid.ID, string(body))
+		utils.BidTimeout.Inc()
 	}
 }
 
@@ -52,21 +64,30 @@ func RunEngineWithBids(inputBids []Bid, maxConcurrentBidders int, metricsSize in
 	var wg sync.WaitGroup
 	metricsChan := make(chan time.Duration, metricsSize)
 
+	// create kafka writer with required config
+	writer := kafka.NewWriter(kafka.WriterConfig{
+		Brokers:  []string{"localhost: 9092"},
+		Topic:    "bids",
+		Balancer: &kafka.LeastBytes{},
+	})
+	defer writer.Close()
+
 	// create and prioritize bids
 	bids := &PriorityQueue{}
 	heap.Init(bids)
 	for _, bid := range inputBids {
 		heap.Push(bids, bid)
 	}
-	// for i := 1; i <= 10; i++ {
-	// 	heap.Push(bids, Bid{ID: i, Priority: 10 - i}) // Higher ID = Lower Priority
-	// }
 
 	// process bids by priority
 	for bids.Len() > 0 {
 		bid := heap.Pop(bids).(Bid)
 		wg.Add(1)
-		go processBid(bid, sem, &wg, metricsChan)
+		go func(b Bid) {
+			defer wg.Done()
+			processBid(bid, sem, &wg, metricsChan)
+			utils.SendBidResultToKafka(writer, bid.ID, "bid processed")
+		}(bid)
 	}
 
 	wg.Wait()
